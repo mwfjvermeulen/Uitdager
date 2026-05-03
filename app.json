@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Uitdager",
+    "slug": "uitdager",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#1a1a2e"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.mwfjvermeulen.uitdager"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#1a1a2e"
+      },
+      "package": "com.mwfjvermeulen.uitdager"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "color": "#FF6B6B"
+        }
+      ]
+    ],
+    "scheme": "uitdager",
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

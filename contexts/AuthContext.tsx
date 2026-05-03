@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
+import { registerForPushNotifications, scheduleDailyReminder } from '../lib/notifications';
 import { User } from '../types';
 
 interface AuthContextType {
@@ -34,7 +35,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .select('*')
           .eq('id', stored)
           .single();
-        if (data) setUser(data);
+        if (data) {
+          setUser(data);
+          registerForPushNotifications(data.id).catch(() => {});
+          scheduleDailyReminder().catch(() => {});
+        }
       }
     } catch (e) {
       console.error('Failed to load user', e);
@@ -52,6 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (error || !data) return false;
     setUser(data);
     await AsyncStorage.setItem('user_id', data.id);
+    registerForPushNotifications(data.id).catch(() => {});
+    scheduleDailyReminder().catch(() => {});
     return true;
   };
 

@@ -4,7 +4,7 @@ Een maandelijkse challenge app voor Manon & Melvin.
 
 ## Functies
 
-- 🔐 PIN-login (Manon: 1993, Melvin: 2711)
+- 🔐 PIN-login 
 - 📝 Challenge aanmaken & goedkeuren (beiden moeten akkoord gaan)
 - 🎨 Candy Crush-stijl kaart (gedeelde voortgang)
 - ✅ Dagelijkse activiteiten afvinken

@@ -1,1 +1,1 @@
-// Intentionally empty - Next.js uses SWC compiler (see forceSwcTransforms in next.config.js)
+module.exports = { presets: ['next/babel'] };

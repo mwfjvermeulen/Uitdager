@@ -8,6 +8,9 @@ const nextConfig = {
     trailingSlash: true,
   }),
   images: { unoptimized: true },
+  experimental: {
+    forceSwcTransforms: true,
+  },
 };
 
 module.exports = nextConfig;

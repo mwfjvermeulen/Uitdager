@@ -2,11 +2,12 @@
 import { useEffect, useRef, useState } from 'react';
 
 export default function TimerModal({ activity, onClose, onComplete }: {
-  activity: { name: string; duration_minutes: number };
+  activity: { name: string; duration_minutes?: number };
   onClose: () => void;
   onComplete: () => void;
 }) {
-  const total = activity.duration_minutes * 60;
+  const minutes = activity.duration_minutes ?? 5;
+  const total = minutes * 60;
   const [left, setLeft] = useState(total);
   const [running, setRunning] = useState(false);
   const [done, setDone] = useState(false);
@@ -35,7 +36,7 @@ export default function TimerModal({ activity, onClose, onComplete }: {
     <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50" onClick={onClose}>
       <div className="w-full max-w-sm bg-gradient-to-b from-[#1a1a2e] to-[#16213e] rounded-t-3xl p-8 pb-12" onClick={e => e.stopPropagation()}>
         <h2 className="text-xl font-black text-white text-center">{activity.name}</h2>
-        <p className="text-white/40 text-sm text-center mt-1 mb-7">{activity.duration_minutes} minuten timer</p>
+        <p className="text-white/40 text-sm text-center mt-1 mb-7">{minutes} minuten timer</p>
 
         {/* Circular timer */}
         <div className="flex justify-center mb-7">

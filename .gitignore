@@ -1,12 +1,20 @@
+# deps
 node_modules/
-.expo/
-dist/
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-*.orig.*
-web-build/
+/.pnp
+.pnp.js
+
+# next
+/.next/
+/out/
+/build
+
+# env
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# misc
 .DS_Store
+npm-debug.log*

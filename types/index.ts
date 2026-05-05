@@ -2,7 +2,7 @@ export interface User {
   id: string;
   name: string;
   pin_code: string;
-  push_token?: string;
+  push_subscription?: PushSubscriptionJSON | null;
   created_at: string;
 }
 

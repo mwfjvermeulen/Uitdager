@@ -1,287 +1,125 @@
-import React, { useState } from 'react';
-import {
-  Modal, View, Text, StyleSheet, TouchableOpacity,
-  TextInput, ScrollView, Alert, KeyboardAvoidingView, Platform,
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '../lib/supabase';
-import { User } from '../types';
+'use client';
+import { useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { getStoredUser } from '@/lib/auth';
 
-interface ActivityInput {
-  name: string;
-  target_count: string;
-  unit: string;
-  duration_minutes: string;
-  is_timed: boolean;
-}
+interface Act { name: string; isTimed: boolean; count: string; unit: string; minutes: string; }
+const emptyAct = (): Act => ({ name: '', isTimed: false, count: '', unit: 'reps', minutes: '' });
 
-interface Props {
-  visible: boolean;
-  user: User;
-  onClose: () => void;
-  onCreated: () => void;
-}
-
-export default function CreateChallengeModal({ visible, user, onClose, onCreated }: Props) {
+export default function CreateChallengeModal({ open, onClose, onCreated }: {
+  open: boolean; onClose: () => void; onCreated: () => void;
+}) {
+  const stored = getStoredUser();
   const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
-  const [durationDays, setDurationDays] = useState('30');
-  const [activities, setActivities] = useState<ActivityInput[]>([{
-    name: '', target_count: '', unit: 'reps', duration_minutes: '', is_timed: false,
-  }]);
+  const [desc, setDesc] = useState('');
+  const [days, setDays] = useState('30');
+  const [acts, setActs] = useState<Act[]>([emptyAct()]);
   const [loading, setLoading] = useState(false);
 
-  const addActivity = () => {
-    setActivities(prev => [...prev, { name: '', target_count: '', unit: 'reps', duration_minutes: '', is_timed: false }]);
-  };
+  if (!open) return null;
 
-  const removeActivity = (index: number) => {
-    setActivities(prev => prev.filter((_, i) => i !== index));
-  };
+  const updateAct = (i: number, f: Partial<Act>) => setActs(prev => prev.map((a, idx) => idx === i ? { ...a, ...f } : a));
 
-  const updateActivity = (index: number, field: keyof ActivityInput, value: string | boolean) => {
-    setActivities(prev => prev.map((a, i) => i === index ? { ...a, [field]: value } : a));
-  };
-
-  const handleSubmit = async () => {
-    if (!title.trim()) { Alert.alert('Vul een titel in'); return; }
-    if (activities.some(a => !a.name.trim())) { Alert.alert('Geef elke activiteit een naam'); return; }
-    const days = parseInt(durationDays);
-    if (isNaN(days) || days < 1 || days > 31) { Alert.alert('Duur moet tussen 1 en 31 dagen zijn'); return; }
-
+  const submit = async () => {
+    if (!title.trim()) return alert('Vul een titel in');
+    if (acts.some(a => !a.name.trim())) return alert('Geef elke activiteit een naam');
+    const d = parseInt(days);
+    if (isNaN(d) || d < 1 || d > 31) return alert('Duur moet tussen 1 en 31 zijn');
+    if (!stored) return;
     setLoading(true);
     try {
-      const isManon = user.name === 'Manon';
-      const { data: challenge, error } = await supabase
-        .from('challenges')
-        .insert({
-          title: title.trim(),
-          description: description.trim() || null,
-          duration_days: days,
-          status: 'proposed',
-          proposed_by: user.id,
-          manon_approved: isManon,
-          melvin_approved: !isManon,
-        })
-        .select()
-        .single();
-
-      if (error || !challenge) throw error;
-
-      const activityRows = activities.map((a, i) => ({
-        challenge_id: challenge.id,
-        name: a.name.trim(),
-        target_count: a.is_timed ? null : (parseInt(a.target_count) || null),
-        unit: a.is_timed ? 'minuten' : (a.unit || 'reps'),
-        duration_minutes: a.is_timed ? (parseInt(a.duration_minutes) || null) : null,
-        sort_order: i,
-      }));
-
-      await supabase.from('challenge_activities').insert(activityRows);
-
-      setTitle('');
-      setDescription('');
-      setDurationDays('30');
-      setActivities([{ name: '', target_count: '', unit: 'reps', duration_minutes: '', is_timed: false }]);
-      onCreated();
-      onClose();
-    } catch (e) {
-      Alert.alert('Fout', 'Kon de challenge niet aanmaken. Probeer opnieuw.');
-    } finally {
-      setLoading(false);
-    }
+      const isManon = stored.name === 'Manon';
+      const { data: ch, error } = await supabase.from('challenges').insert({
+        title: title.trim(), description: desc.trim() || null, duration_days: d,
+        status: 'proposed', proposed_by: stored.id,
+        manon_approved: isManon, melvin_approved: !isManon,
+      }).select().single();
+      if (error || !ch) throw error;
+      await supabase.from('challenge_activities').insert(
+        acts.map((a, i) => ({
+          challenge_id: ch.id, name: a.name.trim(), sort_order: i,
+          target_count: a.isTimed ? null : (parseInt(a.count) || null),
+          unit: a.isTimed ? 'minuten' : (a.unit || 'reps'),
+          duration_minutes: a.isTimed ? (parseInt(a.minutes) || null) : null,
+        }))
+      );
+      setTitle(''); setDesc(''); setDays('30'); setActs([emptyAct()]);
+      onCreated(); onClose();
+    } catch { alert('Er is iets misgegaan. Probeer opnieuw.'); }
+    finally { setLoading(false); }
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.overlay}>
-        <LinearGradient colors={['#1a1a2e', '#16213e']} style={styles.modal}>
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>Nieuwe Challenge 💪</Text>
-            <TouchableOpacity onPress={onClose}>
-              <Ionicons name="close" size={24} color="rgba(255,255,255,0.6)" />
-            </TouchableOpacity>
-          </View>
+    <div className="fixed inset-0 bg-black/70 flex items-end justify-center z-50">
+      <div className="w-full max-w-lg bg-gradient-to-b from-[#1a1a2e] to-[#16213e] rounded-t-3xl p-6 pb-12 max-h-[92vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-5">
+          <h2 className="text-xl font-black text-white">Nieuwe Challenge 💪</h2>
+          <button onClick={onClose} className="text-white/50 text-2xl leading-none">&times;</button>
+        </div>
 
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <Text style={styles.label}>Titel</Text>
-            <TextInput
-              style={styles.input}
-              value={title}
-              onChangeText={setTitle}
-              placeholder="bv. Fitness Challenge"
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              maxLength={60}
-            />
+        <label className="block text-xs font-bold text-white/40 uppercase tracking-widest mb-2">Titel</label>
+        <input value={title} onChange={e => setTitle(e.target.value)} placeholder="bv. Fitness Challenge"
+          className="w-full bg-white/8 border border-white/10 rounded-xl p-3 text-white text-sm mb-4 outline-none focus:border-[#FF6B6B]" />
 
-            <Text style={styles.label}>Beschrijving (optioneel)</Text>
-            <TextInput
-              style={[styles.input, styles.inputMulti]}
-              value={description}
-              onChangeText={setDescription}
-              placeholder="Waarom doen jullie deze challenge?"
-              placeholderTextColor="rgba(255,255,255,0.3)"
-              multiline
-              numberOfLines={3}
-            />
+        <label className="block text-xs font-bold text-white/40 uppercase tracking-widest mb-2">Beschrijving (optioneel)</label>
+        <textarea value={desc} onChange={e => setDesc(e.target.value)} rows={2} placeholder="Waarom doen jullie dit?"
+          className="w-full bg-white/8 border border-white/10 rounded-xl p-3 text-white text-sm mb-4 outline-none resize-none focus:border-[#FF6B6B]" />
 
-            <Text style={styles.label}>Aantal dagen</Text>
-            <View style={styles.daysRow}>
-              {['7', '14', '21', '30', '31'].map(d => (
-                <TouchableOpacity
-                  key={d}
-                  style={[styles.dayChip, durationDays === d && styles.dayChipActive]}
-                  onPress={() => setDurationDays(d)}
-                >
-                  <Text style={[styles.dayChipText, durationDays === d && styles.dayChipTextActive]}>{d}</Text>
-                </TouchableOpacity>
-              ))}
-              <TextInput
-                style={[styles.input, styles.daysInput]}
-                value={durationDays}
-                onChangeText={setDurationDays}
-                keyboardType="numeric"
-                maxLength={2}
-                placeholder="#"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-              />
-            </View>
+        <label className="block text-xs font-bold text-white/40 uppercase tracking-widest mb-2">Aantal dagen</label>
+        <div className="flex gap-2 flex-wrap mb-5">
+          {['7','14','21','30','31'].map(d => (
+            <button key={d} onClick={() => setDays(d)}
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-all ${
+                days === d ? 'bg-[#FF6B6B] text-white' : 'bg-white/10 text-white/60'
+              }`}>{d}</button>
+          ))}
+          <input value={days} onChange={e => setDays(e.target.value)} type="number" min="1" max="31"
+            className="w-14 bg-white/8 border border-white/10 rounded-xl p-2 text-white text-sm text-center outline-none" />
+        </div>
 
-            <Text style={styles.label}>Activiteiten</Text>
-            {activities.map((activity, index) => (
-              <View key={index} style={styles.activityCard}>
-                <View style={styles.activityHeader}>
-                  <Text style={styles.activityNum}>#{index + 1}</Text>
-                  {activities.length > 1 && (
-                    <TouchableOpacity onPress={() => removeActivity(index)}>
-                      <Ionicons name="trash-outline" size={18} color="#ff6b6b" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <TextInput
-                  style={styles.input}
-                  value={activity.name}
-                  onChangeText={v => updateActivity(index, 'name', v)}
-                  placeholder="bv. Push-ups"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                />
-                <View style={styles.typeRow}>
-                  <TouchableOpacity
-                    style={[styles.typeChip, !activity.is_timed && styles.typeChipActive]}
-                    onPress={() => updateActivity(index, 'is_timed', false)}
-                  >
-                    <Text style={[styles.typeChipText, !activity.is_timed && styles.typeChipTextActive]}>Herhalingen</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.typeChip, activity.is_timed && styles.typeChipActive]}
-                    onPress={() => updateActivity(index, 'is_timed', true)}
-                  >
-                    <Text style={[styles.typeChipText, activity.is_timed && styles.typeChipTextActive]}>⏱ Minuten</Text>
-                  </TouchableOpacity>
-                </View>
-                {activity.is_timed ? (
-                  <TextInput
-                    style={styles.input}
-                    value={activity.duration_minutes}
-                    onChangeText={v => updateActivity(index, 'duration_minutes', v)}
-                    placeholder="Aantal minuten"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
-                    keyboardType="numeric"
-                  />
-                ) : (
-                  <View style={styles.repsRow}>
-                    <TextInput
-                      style={[styles.input, styles.repsInput]}
-                      value={activity.target_count}
-                      onChangeText={v => updateActivity(index, 'target_count', v)}
-                      placeholder="Aantal"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                      keyboardType="numeric"
-                    />
-                    <TextInput
-                      style={[styles.input, styles.unitInput]}
-                      value={activity.unit}
-                      onChangeText={v => updateActivity(index, 'unit', v)}
-                      placeholder="eenheid"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
-                    />
-                  </View>
-                )}
-              </View>
-            ))}
+        <label className="block text-xs font-bold text-white/40 uppercase tracking-widest mb-2">Activiteiten</label>
+        <div className="flex flex-col gap-3 mb-3">
+          {acts.map((act, i) => (
+            <div key={i} className="bg-white/5 rounded-2xl p-4 border border-white/8 flex flex-col gap-3">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-white/30 font-bold">#{i + 1}</span>
+                {acts.length > 1 && <button onClick={() => setActs(p => p.filter((_, idx) => idx !== i))} className="text-[#FF6B6B] text-xs">Verwijder</button>}
+              </div>
+              <input value={act.name} onChange={e => updateAct(i, { name: e.target.value })} placeholder="bv. Push-ups"
+                className="w-full bg-white/8 border border-white/10 rounded-xl p-3 text-white text-sm outline-none" />
+              <div className="flex gap-2">
+                {[false, true].map(timed => (
+                  <button key={String(timed)} onClick={() => updateAct(i, { isTimed: timed })}
+                    className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                      act.isTimed === timed ? 'bg-[#4ECDC4]/20 border border-[#4ECDC4] text-[#4ECDC4]' : 'bg-white/5 border border-white/10 text-white/50'
+                    }`}>{timed ? '⏱ Minuten' : 'Herhalingen'}</button>
+                ))}
+              </div>
+              {act.isTimed ? (
+                <input value={act.minutes} onChange={e => updateAct(i, { minutes: e.target.value })} type="number" placeholder="Aantal minuten"
+                  className="w-full bg-white/8 border border-white/10 rounded-xl p-3 text-white text-sm outline-none" />
+              ) : (
+                <div className="flex gap-2">
+                  <input value={act.count} onChange={e => updateAct(i, { count: e.target.value })} type="number" placeholder="Aantal"
+                    className="flex-1 bg-white/8 border border-white/10 rounded-xl p-3 text-white text-sm outline-none" />
+                  <input value={act.unit} onChange={e => updateAct(i, { unit: e.target.value })} placeholder="eenheid"
+                    className="flex-1 bg-white/8 border border-white/10 rounded-xl p-3 text-white text-sm outline-none" />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
 
-            <TouchableOpacity style={styles.addBtn} onPress={addActivity}>
-              <Ionicons name="add-circle-outline" size={20} color="#4ECDC4" />
-              <Text style={styles.addBtnText}>Activiteit toevoegen</Text>
-            </TouchableOpacity>
+        <button onClick={() => setActs(p => [...p, emptyAct()])}
+          className="w-full border border-dashed border-[#4ECDC4]/50 text-[#4ECDC4] font-bold py-3 rounded-2xl text-sm mb-5 active:scale-95">
+          + Activiteit toevoegen
+        </button>
 
-            <TouchableOpacity
-              style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
-              onPress={handleSubmit}
-              disabled={loading}
-            >
-              <Text style={styles.submitBtnText}>{loading ? 'Even geduld...' : 'Challenge voorstellen 🚀'}</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </LinearGradient>
-      </KeyboardAvoidingView>
-    </Modal>
+        <button onClick={submit} disabled={loading}
+          className="w-full bg-[#FF6B6B] text-white font-black py-5 rounded-2xl text-lg active:scale-95 transition-all disabled:opacity-60">
+          {loading ? 'Even geduld...' : 'Challenge voorstellen 🚀'}
+        </button>
+      </div>
+    </div>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: { flex: 1, justifyContent: 'flex-end' },
-  modal: { maxHeight: '92%', borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff' },
-  label: { fontSize: 13, fontWeight: '700', color: 'rgba(255,255,255,0.5)', marginBottom: 8, marginTop: 16, textTransform: 'uppercase', letterSpacing: 1 },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12,
-    padding: 14, color: '#fff', fontSize: 15,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-  },
-  inputMulti: { minHeight: 80, textAlignVertical: 'top' },
-  daysRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
-  dayChip: {
-    paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
-  },
-  dayChipActive: { backgroundColor: '#FF6B6B', borderColor: '#FF6B6B' },
-  dayChipText: { color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
-  dayChipTextActive: { color: '#fff' },
-  daysInput: { width: 56, textAlign: 'center', padding: 10 },
-  activityCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 16, padding: 16, marginBottom: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-    gap: 10,
-  },
-  activityHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  activityNum: { fontSize: 13, color: 'rgba(255,255,255,0.4)', fontWeight: '700' },
-  typeRow: { flexDirection: 'row', gap: 8 },
-  typeChip: {
-    flex: 1, paddingVertical: 10, borderRadius: 10, alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-  },
-  typeChipActive: { backgroundColor: 'rgba(78,205,196,0.2)', borderColor: '#4ECDC4' },
-  typeChipText: { color: 'rgba(255,255,255,0.5)', fontWeight: '600', fontSize: 13 },
-  typeChipTextActive: { color: '#4ECDC4' },
-  repsRow: { flexDirection: 'row', gap: 8 },
-  repsInput: { flex: 1 },
-  unitInput: { flex: 1 },
-  addBtn: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 14, marginVertical: 8,
-    borderRadius: 14, borderWidth: 1.5, borderColor: '#4ECDC4', borderStyle: 'dashed',
-  },
-  addBtnText: { color: '#4ECDC4', fontWeight: '700', fontSize: 15 },
-  submitBtn: {
-    backgroundColor: '#FF6B6B', borderRadius: 16, paddingVertical: 18,
-    alignItems: 'center', marginTop: 8, marginBottom: 16,
-  },
-  submitBtnDisabled: { opacity: 0.6 },
-  submitBtnText: { color: '#fff', fontWeight: '800', fontSize: 17 },
-});

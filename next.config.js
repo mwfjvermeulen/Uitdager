@@ -2,9 +2,11 @@
 const isGitHubPages = process.env.GITHUB_PAGES === 'true';
 
 const nextConfig = {
-  output: isGitHubPages ? 'export' : undefined,
-  basePath: isGitHubPages ? '/Uitdager' : '',
-  trailingSlash: true,
+  ...(isGitHubPages && {
+    output: 'export',
+    basePath: '/Uitdager',
+    trailingSlash: true,
+  }),
   images: { unoptimized: true },
 };
 

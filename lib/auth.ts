@@ -1,16 +1,21 @@
 'use client';
 
-export function getStoredUser(): { id: string; name: string } | null {
+export interface StoredUser {
+  id: string;
+  name: string;
+  avatar?: string;
+  slogan?: string;
+}
+
+export function getStoredUser(): StoredUser | null {
   if (typeof window === 'undefined') return null;
   try {
     const raw = localStorage.getItem('uitdager_user');
     return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-export function setStoredUser(user: { id: string; name: string }) {
+export function setStoredUser(user: StoredUser) {
   localStorage.setItem('uitdager_user', JSON.stringify(user));
 }
 

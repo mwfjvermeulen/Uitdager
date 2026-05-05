@@ -1,64 +1,45 @@
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
-import { Platform } from 'react-native';
+'use client';
 import { supabase } from './supabase';
 
-export async function registerForPushNotifications(userId: string): Promise<string | null> {
-  if (!Device.isDevice) return null;
+export const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '';
 
-  const { status: existing } = await Notifications.getPermissionsAsync();
-  let finalStatus = existing;
-
-  if (existing !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
-    finalStatus = status;
-  }
-
-  if (finalStatus !== 'granted') return null;
-
-  if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
+export async function subscribeToPush(userId: string) {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) { await saveSubscription(userId, existing); return; }
+    const sub = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
     });
+    await saveSubscription(userId, sub);
+  } catch (e) {
+    console.warn('Push subscription failed', e);
   }
-
-  const token = (await Notifications.getExpoPushTokenAsync()).data;
-
-  await supabase.from('users').update({ push_token: token }).eq('id', userId);
-
-  return token;
 }
 
-export async function scheduleDailyReminder() {
-  await Notifications.cancelAllScheduledNotificationsAsync();
-
-  await Notifications.scheduleNotificationAsync({
-    content: {
-      title: '💪 Uitdager herinnering!',
-      body: 'Vergeet je challenge van vandaag niet! Jij kan dit!',
-      sound: true,
-    },
-    trigger: {
-      hour: 19,
-      minute: 0,
-      repeats: true,
-    },
-  });
-}
-
-export async function sendCompletionNotification(otherUserToken: string, completedByName: string, dayNumber: number) {
-  if (!otherUserToken) return;
-
-  await fetch('https://exp.host/--/api/v2/push/send', {
+async function saveSubscription(userId: string, sub: PushSubscription) {
+  await fetch('/api/push/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      to: otherUserToken,
-      title: `⭐ ${completedByName} heeft dag ${dayNumber} voltooid!`,
-      body: 'Snel jij ook! Jullie doen het geweldig samen! 🔥',
-      sound: 'default',
-    }),
+    body: JSON.stringify({ userId, subscription: sub.toJSON() }),
   });
+}
+
+export async function notifyOtherUser(myId: string, title: string, body: string) {
+  const { data: users } = await supabase.from('users').select('id').neq('id', myId);
+  if (!users?.[0]) return;
+  await fetch('/api/push/send', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId: users[0].id, title, body }),
+  });
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }

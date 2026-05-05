@@ -1,15 +1,13 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 
+const BASE = process.env.GITHUB_PAGES === 'true' ? '/Uitdager' : '';
+
 export const metadata: Metadata = {
   title: 'Uitdager',
   description: 'Maandelijkse challenges voor Manon & Melvin',
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'Uitdager',
-  },
+  manifest: `${BASE}/manifest.json`,
+  appleWebApp: { capable: true, statusBarStyle: 'black-translucent', title: 'Uitdager' },
 };
 
 export const viewport: Viewport = {
@@ -26,20 +24,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="apple-touch-fullscreen" content="yes" />
-        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href={`${BASE}/icons/icon-192.png`} />
       </head>
       <body className="min-h-screen overflow-hidden">
         {children}
-        <script dangerouslySetInnerHTML={{
-          __html: `
-            if ('serviceWorker' in navigator) {
-              window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js').catch(() => {});
-              });
-            }
-          `
-        }} />
+        <script dangerouslySetInnerHTML={{ __html: `
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+              navigator.serviceWorker.register('${BASE}/sw.js', { scope: '${BASE}/' }).catch(function() {});
+            });
+          }
+        ` }} />
       </body>
     </html>
   );

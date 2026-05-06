@@ -8,9 +8,9 @@ import { supabase } from '@/lib/supabase';
 import ProfileModal from '@/components/ProfileModal';
 
 const NAV = [
-  { href: '/map', label: 'Map', icon: '🗺️' },
+  { href: '/map',       label: 'Map',       icon: '🗺️' },
   { href: '/challenge', label: 'Challenge', icon: '🔥' },
-  { href: '/stats', label: 'Stats', icon: '📊' },
+  { href: '/stats',     label: 'Stats',     icon: '📊' },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -44,9 +44,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div className="flex flex-col h-screen" style={{ background: 'linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #24243e 100%)' }}>
-      {/* Top bar */}
-      <div className="flex items-center justify-between px-5 pt-12 pb-3 border-b border-white/5 flex-shrink-0">
+    <div style={{ background: 'linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #24243e 100%)', minHeight: '100dvh' }}>
+
+      {/* Fixed top bar */}
+      <header
+        className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-5 border-b border-white/10"
+        style={{
+          paddingTop: 'max(env(safe-area-inset-top), 40px)',
+          paddingBottom: '10px',
+          background: 'rgba(15, 12, 41, 0.97)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+        }}
+      >
         <span className="text-lg font-black text-white tracking-wide">Uitdager 🏆</span>
         <button
           onClick={() => setShowProfile(true)}
@@ -61,17 +71,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
           <span className="text-white/30 text-xs ml-0.5">⚙️</span>
         </button>
-      </div>
+      </header>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto overscroll-contain">
+      {/* Scrollable content — padding keeps it clear of fixed bars */}
+      <main
+        className="overflow-y-auto overscroll-contain"
+        style={{
+          paddingTop: 'calc(max(env(safe-area-inset-top), 40px) + 54px)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 68px)',
+          minHeight: '100dvh',
+        }}
+      >
         {children}
-      </div>
+      </main>
 
-      {/* Bottom nav */}
-      <div
-        className="flex-shrink-0 flex border-t border-white/8"
-        style={{ background: '#0f0c29', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      {/* Fixed bottom nav */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-40 flex border-t border-white/10"
+        style={{
+          background: 'rgba(15, 12, 41, 0.97)',
+          backdropFilter: 'blur(16px)',
+          WebkitBackdropFilter: 'blur(16px)',
+          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        }}
       >
         {NAV.map(({ href, label, icon }) => {
           const active = pathname === href;
@@ -88,7 +110,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           );
         })}
-      </div>
+      </nav>
 
       {showProfile && (
         <ProfileModal

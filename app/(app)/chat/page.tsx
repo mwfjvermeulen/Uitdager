@@ -19,6 +19,20 @@ export default function ChatPage() {
     if (msgRef.current) msgRef.current.scrollTop = msgRef.current.scrollHeight;
   };
 
+  // Mark chat as read when page is open
+  useEffect(() => {
+    if (stored) {
+      localStorage.setItem(`chat_last_read_${stored.id}`, new Date().toISOString());
+      window.dispatchEvent(new Event('chat-read'));
+    }
+  }, [stored?.id]);
+
+  const addMessage = (msg: Message) => {
+    setMessages(prev => prev.some(m => m.id === msg.id) ? prev : [...prev, msg]);
+    // Keep marking as read while page is open
+    if (stored) localStorage.setItem(`chat_last_read_${stored.id}`, new Date().toISOString());
+  };
+
   const load = useCallback(async () => {
     const { data } = await supabase
       .from('messages').select('*')
@@ -31,7 +45,7 @@ export default function ChatPage() {
     load();
     const sub = supabase.channel('chat_rt')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' },
-        payload => setMessages(prev => [...prev, payload.new as Message]))
+        payload => addMessage(payload.new as Message))
       .subscribe();
     return () => { sub.unsubscribe(); };
   }, [load]);
@@ -44,7 +58,13 @@ export default function ChatPage() {
     setInput('');
     setSending(true);
     try {
-      await supabase.from('messages').insert({ user_id: stored.id, content: text });
+      const { data: inserted } = await supabase
+        .from('messages')
+        .insert({ user_id: stored.id, content: text })
+        .select()
+        .single();
+      // Directly add to local state — Realtime may not echo back to same client
+      if (inserted) addMessage(inserted as Message);
       notifyOtherUser(stored.id, `${stored.name} 💬`, text).catch(() => {});
     } finally { setSending(false); }
   };

@@ -8,9 +8,10 @@ import { supabase } from '@/lib/supabase';
 import ProfileModal from '@/components/ProfileModal';
 
 const NAV = [
-  { href: '/map',       label: 'Map',       icon: '🗺️' },
-  { href: '/challenge', label: 'Challenge', icon: '🔥' },
-  { href: '/stats',     label: 'Stats',     icon: '📊' },
+  { href: '/map',       label: 'Map',   icon: '🗺️' },
+  { href: '/challenge', label: 'Dag',   icon: '🔥' },
+  { href: '/stats',     label: 'Stats', icon: '📊' },
+  { href: '/chat',      label: 'Chat',  icon: '💬' },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -97,12 +98,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <Link
               key={href}
               href={href}
-              className={`flex-1 flex flex-col items-center py-3 gap-1 transition-colors ${
+              className={`flex-1 flex flex-col items-center py-2.5 gap-0.5 transition-colors ${
                 active ? 'text-[#FF6B6B]' : 'text-white/35'
               }`}
             >
               <span className="text-xl">{icon}</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wide">{label}</span>
+              <span className="text-[9px] font-semibold uppercase tracking-wide">{label}</span>
             </Link>
           );
         })}

@@ -19,17 +19,14 @@ function MapNode({
   onClick: () => void;
 }) {
   const bothDone = myDone && otherDone;
-  const bg = bothDone    ? 'from-yellow-300 to-orange-400'
-    : myDone             ? 'from-[#FF6B6B] to-[#ee0979]'
-    : otherDone          ? 'from-[#4ECDC4] to-[#11998e]'
-    : isCurrent          ? 'from-[#a18cd1] to-[#fbc2eb]'
-    :                      'from-white/10 to-white/5';
+  const bg = bothDone   ? 'from-yellow-300 to-orange-400'
+    : myDone            ? 'from-[#FF6B6B] to-[#ee0979]'
+    : otherDone         ? 'from-[#4ECDC4] to-[#11998e]'
+    : isCurrent         ? 'from-[#a18cd1] to-[#fbc2eb]'
+    :                     'from-white/10 to-white/5';
 
   return (
-    <button
-      onClick={onClick}
-      className="flex flex-col items-center gap-1 active:scale-90 transition-transform"
-    >
+    <button onClick={onClick} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
       <div className={[
         'relative w-14 h-14 rounded-full bg-gradient-to-b flex items-center justify-center font-black text-lg shadow-lg transition-all duration-300',
         bg,
@@ -97,17 +94,25 @@ export default function MapPage() {
 
   useEffect(() => {
     if (challenge?.id) {
-      const day = getCurrentDay();
       setTimeout(() => {
+        const day = getCurrentDay();
         document.getElementById(`node-${day}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 450);
+      }, 500);
     }
-  }, [challenge?.id]);
+  }, [challenge?.id, completions.length]);
 
+  // Current day = max(calendar day, highest completed day + 1)
+  // This ensures that if you've completed day 2, day 3 is accessible even if
+  // the calendar hasn't reached day 3 yet.
   const getCurrentDay = () => {
     if (!challenge?.start_date) return 1;
-    const diff = Math.floor((Date.now() - new Date(challenge.start_date).getTime()) / 86400000) + 1;
-    return Math.max(1, Math.min(diff, challenge.duration_days));
+    const calendarDay = Math.max(1, Math.min(
+      Math.floor((Date.now() - new Date(challenge.start_date).getTime()) / 86400000) + 1,
+      challenge.duration_days,
+    ));
+    const myDone = completions.filter(c => c.user_id === (stored?.id ?? ''));
+    const highestDone = myDone.length > 0 ? Math.max(...myDone.map(c => c.day_number)) : 0;
+    return Math.min(Math.max(calendarDay, highestDone + 1), challenge.duration_days);
   };
 
   const approve = async () => {
@@ -142,10 +147,10 @@ export default function MapPage() {
       <span className="text-8xl">🏆</span>
       <h2 className="text-2xl font-black text-white">Geen actieve challenge</h2>
       <p className="text-white/50 text-sm">Stel een nieuwe maandelijkse challenge voor!</p>
-      <button
-        onClick={() => setShowCreate(true)}
-        className="bg-[#FF6B6B] text-white font-bold px-8 py-4 rounded-2xl text-lg active:scale-95 transition-transform"
-      >+ Challenge aanmaken</button>
+      <button onClick={() => setShowCreate(true)}
+        className="bg-[#FF6B6B] text-white font-bold px-8 py-4 rounded-2xl text-lg active:scale-95 transition-transform">
+        + Challenge aanmaken
+      </button>
       <CreateChallengeModal open={showCreate} onClose={() => setShowCreate(false)} onCreated={load} />
     </div>
   );
@@ -187,21 +192,19 @@ export default function MapPage() {
 
   if (!challenge) return null;
 
-  const days       = Array.from({ length: challenge.duration_days }, (_, i) => i + 1);
-  const currentDay = getCurrentDay();
-  const myId       = stored?.id ?? '';
-  const myInitial  = stored?.name?.[0] ?? 'M';
+  const days         = Array.from({ length: challenge.duration_days }, (_, i) => i + 1);
+  const currentDay   = getCurrentDay();
+  const myId         = stored?.id ?? '';
+  const myInitial    = stored?.name?.[0] ?? 'M';
   const otherInitial = otherUser?.name?.[0] ?? 'M';
 
   return (
     <>
-      {/* Info strip */}
       <div className="px-5 pt-3 pb-1">
         <h2 className="text-lg font-black text-white">{challenge.title}</h2>
         <p className="text-white/40 text-xs">Dag {currentDay} van {challenge.duration_days} · Tik op een dag om te openen</p>
       </div>
 
-      {/* Legend */}
       <div className="flex justify-center gap-5 px-4 py-2 mb-1">
         {[[stored?.name ?? '', '#FF6B6B'], [otherUser?.name ?? '', '#4ECDC4'], ['Samen ⭐', '#FFE66D']].map(([label, color]) => (
           <div key={label} className="flex items-center gap-1.5">
@@ -211,10 +214,7 @@ export default function MapPage() {
         ))}
       </div>
 
-      {/* Map canvas */}
       <div className="relative px-2" style={{ height: `${days.length * 110 + 60}px` }}>
-
-        {/* Connecting lines */}
         {days.map((day, i) => {
           if (i === 0) return null;
           const x1   = parseFloat(getCol(i - 1));
@@ -226,38 +226,26 @@ export default function MapPage() {
             completions.some(c => c.day_number === day - 1 && c.user_id === otherUser?.id);
           return (
             <svg key={`line-${i}`} className="absolute inset-0 w-full h-full" style={{ zIndex: 0, pointerEvents: 'none' }}>
-              <line
-                x1={`${x1}%`} y1={y1} x2={`${x2}%`} y2={y2}
+              <line x1={`${x1}%`} y1={y1} x2={`${x2}%`} y2={y2}
                 stroke={done ? '#FFE66D40' : 'rgba(255,255,255,0.1)'}
-                strokeWidth="6"
-                strokeDasharray={done ? 'none' : '8 6'}
-                strokeLinecap="round"
-              />
+                strokeWidth="6" strokeDasharray={done ? 'none' : '8 6'} strokeLinecap="round" />
             </svg>
           );
         })}
 
-        {/* Day nodes */}
         {days.map((day, i) => {
           const myDone    = completions.some(c => c.day_number === day && c.user_id === myId);
           const otherDone = completions.some(c => c.day_number === day && c.user_id === otherUser?.id);
           const top       = (days.length - i - 1) * 110 + 10;
           return (
-            <div
-              key={day}
-              id={`node-${day}`}
-              className="absolute"
-              style={{ left: getCol(i), top, transform: 'translateX(-50%)', zIndex: 1 }}
-            >
+            <div key={day} id={`node-${day}`} className="absolute"
+              style={{ left: getCol(i), top, transform: 'translateX(-50%)', zIndex: 1 }}>
               <MapNode
-                day={day}
-                myDone={myDone}
-                otherDone={otherDone}
+                day={day} myDone={myDone} otherDone={otherDone}
                 isCurrent={day === currentDay}
                 isFuture={day > currentDay}
                 isBlinking={day === blinkDay}
-                myInitial={myInitial}
-                otherInitial={otherInitial}
+                myInitial={myInitial} otherInitial={otherInitial}
                 onClick={() => setSelectedDay(day)}
               />
             </div>
@@ -274,10 +262,7 @@ export default function MapPage() {
           isFutureDay={selectedDay > currentDay}
           activities={activities}
           onClose={() => setSelectedDay(null)}
-          onDayCompleted={() => {
-            handleDayCompleted(selectedDay);
-            setSelectedDay(null);
-          }}
+          onDayCompleted={() => { handleDayCompleted(selectedDay); setSelectedDay(null); }}
         />
       )}
     </>

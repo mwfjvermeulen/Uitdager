@@ -22,12 +22,7 @@ export default function LoginPage() {
       setLoading(true);
       const { data } = await supabase.from('users').select('*').eq('pin_code', next).single();
       if (data) {
-        setStoredUser({
-          id: data.id,
-          name: data.name,
-          avatar: data.avatar ?? '🏆',
-          slogan: data.slogan ?? undefined,
-        });
+        setStoredUser({ id: data.id, name: data.name, avatar: data.avatar ?? '🏆', slogan: data.slogan ?? undefined });
         router.replace('/map');
       } else {
         setError(true);
@@ -46,8 +41,8 @@ export default function LoginPage() {
       className="min-h-screen flex flex-col items-center justify-center px-6 pb-10"
       style={{ background: 'linear-gradient(160deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}
     >
-      <div className="text-7xl mb-3 select-none">🏆</div>
-      <h1 className="text-4xl font-black tracking-widest text-white mb-1">Uitdager</h1>
+      <div className="text-7xl mb-3 select-none">💑</div>
+      <h1 className="text-3xl font-black tracking-tight text-white mb-1">M&amp;M Challenge</h1>
       <p className="text-white/50 text-sm mb-10">Voer je pincode in</p>
 
       <div className={`flex gap-5 mb-3 transition-transform ${shake ? 'animate-bounce' : ''}`}>
@@ -81,7 +76,7 @@ export default function LoginPage() {
           </div>
         ))}
       </div>
-      <p className="mt-10 text-white/30 text-sm">💪 Manon of Melvin?</p>
+      <p className="mt-10 text-white/30 text-sm">💑 Manon of Melvin?</p>
     </div>
   );
 }

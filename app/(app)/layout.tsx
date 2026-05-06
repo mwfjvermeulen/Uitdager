@@ -30,11 +30,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       .single()
       .then(({ data }) => {
         if (data) {
-          const updated: StoredUser = {
-            ...stored,
-            avatar: data.avatar ?? '🏆',
-            slogan: data.slogan ?? undefined,
-          };
+          const updated: StoredUser = { ...stored, avatar: data.avatar ?? '🏆', slogan: data.slogan ?? undefined };
           setUser(updated);
           setStoredUser(updated);
         }
@@ -57,7 +53,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           WebkitBackdropFilter: 'blur(16px)',
         }}
       >
-        <span className="text-lg font-black text-white tracking-wide">Uitdager 🏆</span>
+        <span className="text-lg font-black text-white tracking-wide">M&amp;M Challenge 💑</span>
         <button
           onClick={() => setShowProfile(true)}
           className="flex items-center gap-2 bg-white/10 border border-white/15 rounded-full pl-2 pr-3 py-1.5 active:scale-95 transition-all"
@@ -73,7 +69,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </button>
       </header>
 
-      {/* Scrollable content — padding keeps it clear of fixed bars */}
+      {/* Scrollable content */}
       <main
         className="overflow-y-auto overscroll-contain"
         style={{

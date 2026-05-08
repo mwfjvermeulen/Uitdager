@@ -19,19 +19,19 @@ function MapNode({
   onClick: () => void;
 }) {
   const bothDone = myDone && otherDone;
-  const bg = bothDone   ? 'from-yellow-300 to-orange-400'
-    : myDone            ? 'from-[#FF6B6B] to-[#ee0979]'
-    : otherDone         ? 'from-[#4ECDC4] to-[#11998e]'
-    : isCurrent         ? 'from-[#a18cd1] to-[#fbc2eb]'
-    :                     'from-white/10 to-white/5';
+  const bg = bothDone         ? 'from-yellow-300 to-orange-400'
+    : myDone                  ? 'from-[#FF6B6B] to-[#ee0979]'
+    : otherDone               ? 'from-[#4ECDC4] to-[#11998e]'
+    : isCurrent               ? 'from-[#a18cd1] to-[#fbc2eb]'
+    :                           'from-white/10 to-white/5';
 
   return (
     <button onClick={onClick} className="flex flex-col items-center gap-1 active:scale-90 transition-transform">
       <div className={[
         'relative w-14 h-14 rounded-full bg-gradient-to-b flex items-center justify-center font-black text-lg shadow-lg transition-all duration-300',
         bg,
-        isFuture   ? 'opacity-35' : '',
-        isCurrent  ? 'ring-2 ring-[#a18cd1]/60 pulse-glow' : '',
+        isFuture  ? 'opacity-35' : '',
+        isCurrent ? 'ring-2 ring-[#a18cd1]/60 pulse-glow' : '',
         isBlinking ? 'day-blink' : '',
       ].join(' ')}>
         <span className={isFuture ? 'text-white/60' : 'text-[#1a1a2e]'}>
@@ -101,9 +101,6 @@ export default function MapPage() {
     }
   }, [challenge?.id, completions.length]);
 
-  // Current day = max(calendar day, highest completed day + 1)
-  // This ensures that if you've completed day 2, day 3 is accessible even if
-  // the calendar hasn't reached day 3 yet.
   const getCurrentDay = () => {
     if (!challenge?.start_date) return 1;
     const calendarDay = Math.max(1, Math.min(
@@ -130,6 +127,13 @@ export default function MapPage() {
     if (!pending) return;
     if (!confirm('Challenge afwijzen?')) return;
     await supabase.from('challenges').update({ status: 'cancelled' }).eq('id', pending.id);
+    load();
+  };
+
+  const stopChallenge = async () => {
+    if (!challenge) return;
+    if (!confirm(`"${challenge.title}" stoppen?\n\nJullie voortgang wordt bewaard. Daarna kunnen jullie een nieuwe challenge aanmaken.`)) return;
+    await supabase.from('challenges').update({ status: 'cancelled' }).eq('id', challenge.id);
     load();
   };
 
@@ -178,8 +182,8 @@ export default function MapPage() {
         </div>
         {!myApproved ? (
           <div className="flex gap-3 w-full">
-            <button onClick={approve} className="flex-1 bg-[#6BCB77] text-white font-bold py-4 rounded-2xl active:scale-95 transition-transform">✅ Akkoord</button>
-            <button onClick={reject}  className="flex-1 border border-[#FF6B6B] text-[#FF6B6B] font-bold py-4 rounded-2xl active:scale-95 transition-transform">❌ Afwijzen</button>
+            <button onClick={approve} className="flex-1 bg-[#6BCB77] text-white font-bold py-4 rounded-2xl active:scale-95">✅ Akkoord</button>
+            <button onClick={reject}  className="flex-1 border border-[#FF6B6B] text-[#FF6B6B] font-bold py-4 rounded-2xl active:scale-95">❌ Afwijzen</button>
           </div>
         ) : (
           <p className="text-white/40 italic text-sm">Wachten op {stored?.name === 'Manon' ? 'Melvin' : 'Manon'}…</p>
@@ -192,19 +196,31 @@ export default function MapPage() {
 
   if (!challenge) return null;
 
-  const days         = Array.from({ length: challenge.duration_days }, (_, i) => i + 1);
-  const currentDay   = getCurrentDay();
-  const myId         = stored?.id ?? '';
+  const days       = Array.from({ length: challenge.duration_days }, (_, i) => i + 1);
+  const currentDay = getCurrentDay();
+  const myId       = stored?.id ?? '';
   const myInitial    = stored?.name?.[0] ?? 'M';
   const otherInitial = otherUser?.name?.[0] ?? 'M';
 
   return (
     <>
+      {/* Header */}
       <div className="px-5 pt-3 pb-1">
-        <h2 className="text-lg font-black text-white">{challenge.title}</h2>
-        <p className="text-white/40 text-xs">Dag {currentDay} van {challenge.duration_days} · Tik op een dag om te openen</p>
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-black text-white">{challenge.title}</h2>
+            <p className="text-white/40 text-xs">Dag {currentDay} van {challenge.duration_days} · Tik op een dag om te openen</p>
+          </div>
+          <button
+            onClick={stopChallenge}
+            className="flex-shrink-0 flex items-center gap-1 text-white/25 text-xs bg-white/5 border border-white/10 px-3 py-1.5 rounded-full mt-0.5 active:scale-95 transition-all hover:text-red-400 hover:border-red-400/30"
+          >
+            ⛔ Stoppen
+          </button>
+        </div>
       </div>
 
+      {/* Legend */}
       <div className="flex justify-center gap-5 px-4 py-2 mb-1">
         {[[stored?.name ?? '', '#FF6B6B'], [otherUser?.name ?? '', '#4ECDC4'], ['Samen ⭐', '#FFE66D']].map(([label, color]) => (
           <div key={label} className="flex items-center gap-1.5">
@@ -214,13 +230,14 @@ export default function MapPage() {
         ))}
       </div>
 
+      {/* Map grid */}
       <div className="relative px-2" style={{ height: `${days.length * 110 + 60}px` }}>
         {days.map((day, i) => {
           if (i === 0) return null;
-          const x1   = parseFloat(getCol(i - 1));
-          const x2   = parseFloat(getCol(i));
-          const y1   = (days.length - i)     * 110 + 28;
-          const y2   = (days.length - i + 1) * 110 + 28;
+          const x1 = parseFloat(getCol(i - 1));
+          const x2 = parseFloat(getCol(i));
+          const y1 = (days.length - i)     * 110 + 28;
+          const y2 = (days.length - i + 1) * 110 + 28;
           const done =
             completions.some(c => c.day_number === day - 1 && c.user_id === myId) &&
             completions.some(c => c.day_number === day - 1 && c.user_id === otherUser?.id);

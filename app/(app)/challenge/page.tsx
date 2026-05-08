@@ -28,6 +28,7 @@ export default function ChallengePage() {
   const [addAmount,       setAddAmount]       = useState('');
 
   const getTarget = (act: ChallengeActivity): number => {
+    if (act.duration_minutes) return act.duration_minutes;
     const isMale = stored?.name !== 'Manon';
     if (isMale  && act.target_count_man)   return act.target_count_man;
     if (!isMale && act.target_count_woman) return act.target_count_woman;
@@ -103,13 +104,10 @@ export default function ChallengePage() {
         progress_count: newCount, completed: isDone,
       });
     }
-
     setAddingTo(null);
     setAddAmount('');
     const fresh = await refreshProgress();
-
-    const allDone = fresh.filter(p => p.completed).length === activities.length;
-    if (allDone && !myCompletion) await markDay();
+    if (fresh.filter(p => p.completed).length === activities.length && !myCompletion) await markDay();
   };
 
   const resetProgress = async (actId: string) => {
@@ -119,19 +117,6 @@ export default function ChallengePage() {
         progress_count: 0, completed: false, updated_at: new Date().toISOString(),
       }).eq('id', existing.id);
       await refreshProgress();
-    }
-  };
-
-  const toggle = async (actId: string, done: boolean) => {
-    if (!stored || myCompletion) return;
-    if (done) {
-      const act = activities.find(a => a.id === actId);
-      if (!act) return;
-      const target  = getTarget(act);
-      const current = myProgress.find(p => p.activity_id === actId)?.progress_count ?? 0;
-      await addPartial(actId, target - current);
-    } else {
-      await resetProgress(actId);
     }
   };
 
@@ -164,7 +149,6 @@ export default function ChallengePage() {
         <h1 className="text-2xl font-black text-white mt-1">{challenge.title}</h1>
       </div>
 
-      {/* Status row */}
       <div className="flex rounded-2xl overflow-hidden border border-white/10">
         <div className="flex-1 flex flex-col items-center py-3 gap-1 bg-white/5">
           <span className="text-2xl">{myCompletion ? '✅' : '⏳'}</span>
@@ -180,8 +164,7 @@ export default function ChallengePage() {
       {!myCompletion && (
         <div>
           <div className="flex justify-between text-xs text-white/50 mb-1.5">
-            <span>Voortgang</span>
-            <span className="text-[#FF6B6B] font-bold">{done}/{activities.length}</span>
+            <span>Voortgang</span><span className="text-[#FF6B6B] font-bold">{done}/{activities.length}</span>
           </div>
           <div className="h-2 bg-white/10 rounded-full overflow-hidden">
             <div className="h-full bg-[#FF6B6B] rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
@@ -205,6 +188,7 @@ export default function ChallengePage() {
           const isTimed   = !!act.duration_minutes;
           const target    = getTarget(act);
           const remaining = target - count;
+          const unit      = isTimed ? 'min' : act.unit;
           const canAct    = !myCompletion;
 
           return (
@@ -216,8 +200,7 @@ export default function ChallengePage() {
               <button
                 onClick={() => {
                   if (!canAct) return;
-                  if (isTimed) toggle(act.id, !completed);
-                  else if (completed) resetProgress(act.id);
+                  if (completed) resetProgress(act.id);
                   else addPartial(act.id, remaining);
                 }}
                 className={`w-8 h-8 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
@@ -233,16 +216,14 @@ export default function ChallengePage() {
               <div className="flex-1 min-w-0">
                 <p className={`font-bold text-sm ${completed ? 'text-white/50 line-through' : 'text-white'}`}>{act.name}</p>
                 <p className="text-white/40 text-xs mt-0.5">
-                  {isTimed
-                    ? `${act.duration_minutes} minuten`
-                    : completed
-                      ? `✅ ${target} ${act.unit}`
-                      : count > 0
-                        ? `${count} / ${target} ${act.unit}`
-                        : `${target} ${act.unit}`
+                  {completed
+                    ? `✅ ${target} ${unit}`
+                    : count > 0
+                      ? `${count} / ${target} ${unit}`
+                      : `${target} ${unit}`
                   }
                 </p>
-                {!isTimed && !completed && count > 0 && (
+                {!completed && count > 0 && (
                   <div className="h-1 bg-white/10 rounded-full mt-1.5 overflow-hidden">
                     <div className="h-full bg-orange-400 rounded-full transition-all duration-500"
                       style={{ width: `${Math.min((count / target) * 100, 100)}%` }} />
@@ -250,17 +231,18 @@ export default function ChallengePage() {
                 )}
               </div>
 
-              {isTimed && canAct && (
-                <button onClick={() => setTimerActivity(act)}
-                  className="flex items-center gap-1.5 bg-[#4ECDC4]/15 border border-[#4ECDC4]/30 px-3 py-1.5 rounded-xl text-[#4ECDC4] text-xs font-bold flex-shrink-0 active:scale-95">
-                  ⏱ Timer
-                </button>
-              )}
-              {!isTimed && canAct && !completed && (
-                <button onClick={() => { setAddingTo(act.id); setAddAmount(''); }}
-                  className="flex items-center gap-1.5 bg-[#4ECDC4]/15 border border-[#4ECDC4]/30 px-3 py-1.5 rounded-xl text-[#4ECDC4] text-xs font-bold flex-shrink-0 active:scale-95">
-                  + Deel
-                </button>
+              {canAct && !completed && (
+                isTimed ? (
+                  <button onClick={() => setTimerActivity(act)}
+                    className="flex items-center gap-1.5 bg-[#4ECDC4]/15 border border-[#4ECDC4]/30 px-3 py-1.5 rounded-xl text-[#4ECDC4] text-xs font-bold flex-shrink-0 active:scale-95">
+                    {count > 0 ? '▶️ Timer' : '⏱ Timer'}
+                  </button>
+                ) : (
+                  <button onClick={() => { setAddingTo(act.id); setAddAmount(''); }}
+                    className="flex items-center gap-1.5 bg-[#4ECDC4]/15 border border-[#4ECDC4]/30 px-3 py-1.5 rounded-xl text-[#4ECDC4] text-xs font-bold flex-shrink-0 active:scale-95">
+                    + Deel
+                  </button>
+                )
               )}
             </div>
           );
@@ -269,20 +251,12 @@ export default function ChallengePage() {
 
       {!myCompletion && (
         <button onClick={confirmMarkDay}
-          className="w-full border border-dashed border-[#6BCB77]/40 text-[#6BCB77] text-sm font-semibold py-4 rounded-2xl active:scale-98 mt-1">
+          className="w-full border border-dashed border-[#6BCB77]/40 text-[#6BCB77] text-sm font-semibold py-4 rounded-2xl mt-1">
           ✔️ Dag handmatig als voltooid markeren
         </button>
       )}
 
-      {timerActivity && (
-        <TimerModal
-          activity={timerActivity}
-          onClose={() => setTimerActivity(null)}
-          onComplete={() => { toggle(timerActivity.id, true); setTimerActivity(null); }}
-        />
-      )}
-
-      {/* Partial-progress add sheet */}
+      {/* Add partial progress sheet */}
       {addingTo && (() => {
         const act = activities.find(a => a.id === addingTo);
         if (!act) return null;
@@ -293,11 +267,9 @@ export default function ChallengePage() {
         const quickAmounts = getQuickAmounts(remaining);
         return (
           <div className="fixed inset-0 z-50 flex items-end" onClick={() => setAddingTo(null)}>
-            <div
-              className="w-full bg-gradient-to-b from-[#1a1a2e] to-[#0f0c29] border-t border-white/15 rounded-t-3xl p-6"
+            <div className="w-full bg-gradient-to-b from-[#1a1a2e] to-[#0f0c29] border-t border-white/15 rounded-t-3xl p-6"
               style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}
-              onClick={e => e.stopPropagation()}
-            >
+              onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-white font-black text-lg">{act.name}</p>
@@ -323,18 +295,33 @@ export default function ChallengePage() {
                 <input type="number" inputMode="numeric" min="1" max={remaining}
                   value={addAmount} onChange={e => setAddAmount(e.target.value)}
                   placeholder={`Eigen aantal (max ${remaining})`}
-                  className="flex-1 bg-white/10 border border-white/15 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 outline-none focus:border-[#4ECDC4]/60"
-                />
+                  className="flex-1 bg-white/10 border border-white/15 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 outline-none focus:border-[#4ECDC4]/60" />
                 <button
                   onClick={() => { const n = Math.min(parseInt(addAmount) || 0, remaining); if (n > 0) addPartial(addingTo, n); }}
                   disabled={!addAmount || parseInt(addAmount) <= 0}
-                  className="px-5 py-3 bg-[#FF6B6B] text-white font-bold rounded-xl disabled:opacity-40 active:scale-95"
-                >
+                  className="px-5 py-3 bg-[#FF6B6B] text-white font-bold rounded-xl disabled:opacity-40 active:scale-95">
                   ✓ Toevoegen
                 </button>
               </div>
             </div>
           </div>
+        );
+      })()}
+
+      {timerActivity && (() => {
+        const prog      = myProgress.find(p => p.activity_id === timerActivity.id);
+        const doneSoFar = prog?.progress_count ?? 0;
+        const total     = getTarget(timerActivity);
+        const remaining = Math.max(total - doneSoFar, 0);
+        return (
+          <TimerModal
+            activity={timerActivity}
+            remainingMinutes={remaining}
+            totalMinutes={total}
+            doneSoFar={doneSoFar}
+            onClose={() => setTimerActivity(null)}
+            onSaveDone={min => { addPartial(timerActivity.id, min); setTimerActivity(null); }}
+          />
         );
       })()}
     </div>

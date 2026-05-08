@@ -35,9 +35,10 @@ export default function DayDetailModal({
   const canToggle = !myDone && !isFutureDay;
 
   const getTarget = (act: ChallengeActivity): number => {
+    if (act.duration_minutes) return act.duration_minutes;
     const isMale = stored?.name !== 'Manon';
-    if (isMale  && act.target_count_man)    return act.target_count_man;
-    if (!isMale && act.target_count_woman)  return act.target_count_woman;
+    if (isMale  && act.target_count_man)   return act.target_count_man;
+    if (!isMale && act.target_count_woman) return act.target_count_woman;
     return act.target_count ?? 0;
   };
 
@@ -70,9 +71,9 @@ export default function DayDetailModal({
 
   const refreshProgress = async (): Promise<ActivityProgress[]> => {
     if (!stored) return [];
-    const { data: fresh } = await supabase.from('activity_progress').select('*')
+    const { data } = await supabase.from('activity_progress').select('*')
       .eq('challenge_id', challengeId).eq('user_id', stored.id).eq('day_number', dayNumber);
-    const list = fresh ?? [];
+    const list = data ?? [];
     setProgress(list);
     return list;
   };
@@ -81,9 +82,9 @@ export default function DayDetailModal({
     if (!stored || amount <= 0) return;
     const act = activities.find(a => a.id === actId);
     if (!act) return;
-    const target = getTarget(act);
+    const target   = getTarget(act);
     const existing = progress.find(p => p.activity_id === actId);
-    const current = existing?.progress_count ?? 0;
+    const current  = existing?.progress_count ?? 0;
     const newCount = Math.min(current + amount, target);
     const isCompleted = newCount >= target;
 
@@ -99,7 +100,6 @@ export default function DayDetailModal({
         progress_count: newCount, completed: isCompleted,
       });
     }
-
     setAddingTo(null);
     setAddAmount('');
     const fresh = await refreshProgress();
@@ -114,19 +114,6 @@ export default function DayDetailModal({
         progress_count: 0, completed: false, updated_at: new Date().toISOString(),
       }).eq('id', existing.id);
       await refreshProgress();
-    }
-  };
-
-  const toggle = async (actId: string, done: boolean) => {
-    if (!stored || !canToggle) return;
-    if (done) {
-      const act = activities.find(a => a.id === actId);
-      if (!act) return;
-      const target = getTarget(act);
-      const current = (progress.find(p => p.activity_id === actId)?.progress_count) ?? 0;
-      await addPartial(actId, target - current);
-    } else {
-      await resetProgress(actId);
     }
   };
 
@@ -155,7 +142,6 @@ export default function DayDetailModal({
             </div>
           ) : (
             <div className="p-6">
-              {/* Header */}
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-[#FF6B6B] text-xs font-bold uppercase tracking-widest mb-1">Dag {dayNumber} / {totalDays}</p>
@@ -193,13 +179,13 @@ export default function DayDetailModal({
 
               <div className="flex flex-col gap-2.5">
                 {activities.map(act => {
-                  const prog     = progress.find(p => p.activity_id === act.id);
-                  const completed  = prog?.completed ?? false;
-                  const count    = prog?.progress_count ?? 0;
-                  const isTimed  = !!act.duration_minutes;
-                  const target   = getTarget(act);
+                  const prog      = progress.find(p => p.activity_id === act.id);
+                  const completed = prog?.completed ?? false;
+                  const count     = prog?.progress_count ?? 0;
+                  const isTimed   = !!act.duration_minutes;
+                  const target    = getTarget(act);
                   const remaining = target - count;
-                  const quickAmounts = getQuickAmounts(remaining);
+                  const unit      = isTimed ? 'min' : act.unit;
 
                   return (
                     <div key={act.id} className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${
@@ -207,38 +193,37 @@ export default function DayDetailModal({
                       count > 0 ? 'bg-orange-500/8 border-orange-500/25' :
                       'bg-white/5 border-white/8'
                     }`}>
-                      {/* Circle button */}
+                      {/* Circle */}
                       <button
                         onClick={() => {
                           if (!canToggle) return;
-                          if (isTimed) toggle(act.id, !completed);
-                          else if (completed) resetProgress(act.id);
+                          if (completed) resetProgress(act.id);
                           else addPartial(act.id, remaining);
                         }}
                         className={`w-9 h-9 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                           completed ? 'bg-[#6BCB77] border-[#6BCB77]' :
-                          count > 0 ? 'border-orange-400 bg-orange-400/15' :
+                          count > 0  ? 'border-orange-400 bg-orange-400/15' :
                           'border-white/30'
                         } ${canToggle ? 'active:scale-90 cursor-pointer' : 'opacity-50 cursor-default'}`}
                       >
                         {completed && <span className="text-white text-base font-black">✔</span>}
-                        {!completed && count > 0 && <span className="text-orange-400 text-[10px] font-black leading-none">{count}</span>}
+                        {!completed && count > 0 && (
+                          <span className="text-orange-400 text-[10px] font-black leading-none">{count}</span>
+                        )}
                       </button>
 
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <p className={`font-bold text-sm ${completed ? 'text-white/40 line-through' : 'text-white'}`}>{act.name}</p>
                         <p className="text-white/40 text-xs mt-0.5">
-                          {isTimed
-                            ? `${act.duration_minutes} minuten`
-                            : completed
-                              ? `✅ ${target} ${act.unit}`
-                              : count > 0
-                                ? `${count} / ${target} ${act.unit}`
-                                : `${target} ${act.unit}`
+                          {completed
+                            ? `✅ ${target} ${unit}`
+                            : count > 0
+                              ? `${count} / ${target} ${unit}`
+                              : `${target} ${unit}`
                           }
                         </p>
-                        {!isTimed && !completed && count > 0 && (
+                        {!completed && count > 0 && (
                           <div className="h-1 bg-white/10 rounded-full mt-1.5 overflow-hidden">
                             <div className="h-full bg-orange-400 rounded-full transition-all duration-500"
                               style={{ width: `${Math.min((count / target) * 100, 100)}%` }} />
@@ -246,18 +231,19 @@ export default function DayDetailModal({
                         )}
                       </div>
 
-                      {/* Action buttons */}
-                      {isTimed && canToggle && !completed && (
-                        <button onClick={() => setTimerActivity(act)}
-                          className="flex items-center gap-1.5 bg-[#4ECDC4]/15 border border-[#4ECDC4]/30 px-3 py-1.5 rounded-xl text-[#4ECDC4] text-xs font-bold flex-shrink-0 active:scale-95">
-                          ⏱ Timer
-                        </button>
-                      )}
-                      {!isTimed && canToggle && !completed && (
-                        <button onClick={() => { setAddingTo(act.id); setAddAmount(''); }}
-                          className="flex items-center gap-1.5 bg-[#4ECDC4]/15 border border-[#4ECDC4]/30 px-3 py-1.5 rounded-xl text-[#4ECDC4] text-xs font-bold flex-shrink-0 active:scale-95">
-                          + Deel
-                        </button>
+                      {/* Action button */}
+                      {canToggle && !completed && (
+                        isTimed ? (
+                          <button onClick={() => setTimerActivity(act)}
+                            className="flex items-center gap-1.5 bg-[#4ECDC4]/15 border border-[#4ECDC4]/30 px-3 py-1.5 rounded-xl text-[#4ECDC4] text-xs font-bold flex-shrink-0 active:scale-95">
+                            {count > 0 ? '▶️ Timer' : '⏱ Timer'}
+                          </button>
+                        ) : (
+                          <button onClick={() => { setAddingTo(act.id); setAddAmount(''); }}
+                            className="flex items-center gap-1.5 bg-[#4ECDC4]/15 border border-[#4ECDC4]/30 px-3 py-1.5 rounded-xl text-[#4ECDC4] text-xs font-bold flex-shrink-0 active:scale-95">
+                            + Deel
+                          </button>
+                        )
                       )}
                     </div>
                   );
@@ -283,7 +269,7 @@ export default function DayDetailModal({
         </div>
       </div>
 
-      {/* Partial-progress add sheet */}
+      {/* Add partial progress sheet */}
       {addingTo && (() => {
         const act = activities.find(a => a.id === addingTo);
         if (!act) return null;
@@ -294,17 +280,15 @@ export default function DayDetailModal({
         const quickAmounts = getQuickAmounts(remaining);
         return (
           <div className="fixed inset-0 z-[60] flex items-end" onClick={() => setAddingTo(null)}>
-            <div
-              className="w-full bg-gradient-to-b from-[#1a1a2e] to-[#0f0c29] border-t border-white/15 rounded-t-3xl p-6"
+            <div className="w-full bg-gradient-to-b from-[#1a1a2e] to-[#0f0c29] border-t border-white/15 rounded-t-3xl p-6"
               style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 24px)' }}
-              onClick={e => e.stopPropagation()}
-            >
+              onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-start mb-4">
                 <div>
                   <p className="text-white font-black text-lg">{act.name}</p>
                   <p className="text-[#4ECDC4] text-sm">{current} / {target} {act.unit} gedaan</p>
                 </div>
-                <button onClick={() => setAddingTo(null)} className="text-white/40 text-2xl leading-none w-8 h-8 flex items-center justify-center">&times;</button>
+                <button onClick={() => setAddingTo(null)} className="text-white/40 text-2xl w-8 h-8 flex items-center justify-center">&times;</button>
               </div>
               <div className="flex flex-wrap gap-2 mb-4">
                 {quickAmounts.map(n => (
@@ -324,13 +308,11 @@ export default function DayDetailModal({
                 <input type="number" inputMode="numeric" min="1" max={remaining}
                   value={addAmount} onChange={e => setAddAmount(e.target.value)}
                   placeholder={`Eigen aantal (max ${remaining})`}
-                  className="flex-1 bg-white/10 border border-white/15 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 outline-none focus:border-[#4ECDC4]/60"
-                />
+                  className="flex-1 bg-white/10 border border-white/15 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 outline-none focus:border-[#4ECDC4]/60" />
                 <button
                   onClick={() => { const n = Math.min(parseInt(addAmount) || 0, remaining); if (n > 0) addPartial(addingTo, n); }}
                   disabled={!addAmount || parseInt(addAmount) <= 0}
-                  className="px-5 py-3 bg-[#FF6B6B] text-white font-bold rounded-xl disabled:opacity-40 active:scale-95"
-                >
+                  className="px-5 py-3 bg-[#FF6B6B] text-white font-bold rounded-xl disabled:opacity-40 active:scale-95">
                   ✓ Toevoegen
                 </button>
               </div>
@@ -339,13 +321,22 @@ export default function DayDetailModal({
         );
       })()}
 
-      {timerActivity && (
-        <TimerModal
-          activity={timerActivity}
-          onClose={() => setTimerActivity(null)}
-          onComplete={() => { toggle(timerActivity.id, true); setTimerActivity(null); }}
-        />
-      )}
+      {timerActivity && (() => {
+        const prog      = progress.find(p => p.activity_id === timerActivity.id);
+        const doneSoFar = prog?.progress_count ?? 0;
+        const total     = getTarget(timerActivity);
+        const remaining = Math.max(total - doneSoFar, 0);
+        return (
+          <TimerModal
+            activity={timerActivity}
+            remainingMinutes={remaining}
+            totalMinutes={total}
+            doneSoFar={doneSoFar}
+            onClose={() => setTimerActivity(null)}
+            onSaveDone={min => { addPartial(timerActivity.id, min); setTimerActivity(null); }}
+          />
+        );
+      })()}
     </>
   );
 }

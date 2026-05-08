@@ -2,6 +2,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { getStoredUser } from '@/lib/auth';
+import { notifyOtherUser } from '@/lib/notifications';
 import type { ChallengeActivity, ActivityProgress, DailyCompletion } from '@/types';
 import TimerModal from '@/components/TimerModal';
 
@@ -126,6 +127,7 @@ export default function ChallengePage() {
       challenge_id: challenge.id, user_id: stored.id, day_number: dayNumber,
       completed_at: new Date().toISOString(),
     }, { onConflict: 'challenge_id,user_id,day_number' });
+    notifyOtherUser(stored.id, `${stored.name} ✅`, `Dag ${dayNumber} van "${challenge.title}" voltooid! 🔥`).catch(() => {});
     await load();
   };
 

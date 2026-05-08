@@ -213,7 +213,7 @@ export default function MapPage() {
           </div>
           <button
             onClick={stopChallenge}
-            className="flex-shrink-0 flex items-center gap-1 text-white/25 text-xs bg-white/5 border border-white/10 px-3 py-1.5 rounded-full mt-0.5 active:scale-95 transition-all hover:text-red-400 hover:border-red-400/30"
+            className="flex-shrink-0 flex items-center gap-1.5 text-red-400 text-xs font-bold bg-red-500/10 border border-red-400/40 px-3 py-1.5 rounded-full mt-0.5 active:scale-95 transition-all"
           >
             ⛔ Stoppen
           </button>

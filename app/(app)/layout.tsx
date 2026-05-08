@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { getStoredUser, setStoredUser } from '@/lib/auth';
 import type { StoredUser } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
+import { subscribeToPush } from '@/lib/notifications';
 import ProfileModal from '@/components/ProfileModal';
 
 const NAV = [
@@ -33,6 +34,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           setStoredUser(updated);
         }
       });
+    // Register push notification subscription (asks permission if not yet granted)
+    subscribeToPush().catch(() => {});
   }, [router]);
 
   useEffect(() => {

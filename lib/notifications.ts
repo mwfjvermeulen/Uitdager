@@ -1,12 +1,13 @@
 'use client';
-import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
+import { supabase } from './supabase';
 import { getStoredUser } from './auth';
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? '';
+// Public VAPID key — safe to expose in client code
+const VAPID_PUBLIC_KEY = 'BILHIDCnH8O_nNEpbJ9XcqoE2yM2KjP3FL_rnVwj6a2W_7pY7bf6jKu2rZZQYRnBx5DcH-IUn_VHTTd0WzdhGEQ';
 
 export async function subscribeToPush() {
   const user = getStoredUser();
-  if (!user || !('serviceWorker' in navigator) || !('PushManager' in window) || !VAPID_PUBLIC_KEY) return;
+  if (!user || !('serviceWorker' in navigator) || !('PushManager' in window)) return;
   try {
     const reg = await navigator.serviceWorker.ready;
     const sub = await reg.pushManager.subscribe({
@@ -23,9 +24,9 @@ export async function notifyOtherUser(myId: string, title: string, body: string)
   try {
     const { data: others } = await supabase.from('users').select('id').neq('id', myId);
     if (!others?.[0]) return;
-    await fetch(`${SUPABASE_URL}/functions/v1/push-send`, {
+    await fetch('/api/push/send', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: others[0].id, title, body }),
     });
   } catch (e) {

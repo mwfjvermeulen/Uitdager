@@ -15,21 +15,17 @@ const NAV = [
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
+  const router   = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<StoredUser | null>(null);
+  const [user,        setUser]        = useState<StoredUser | null>(null);
   const [showProfile, setShowProfile] = useState(false);
-  const [unread, setUnread] = useState(0);
+  const [unread,      setUnread]      = useState(0);
 
   useEffect(() => {
     const stored = getStoredUser();
     if (!stored) { router.replace('/login'); return; }
     setUser(stored);
-    supabase
-      .from('users')
-      .select('avatar, slogan')
-      .eq('id', stored.id)
-      .single()
+    supabase.from('users').select('avatar, slogan').eq('id', stored.id).single()
       .then(({ data }) => {
         if (data) {
           const updated: StoredUser = { ...stored, avatar: data.avatar ?? '🏆', slogan: data.slogan ?? undefined };
@@ -39,42 +35,29 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       });
   }, [router]);
 
-  // Track unread chat messages
   useEffect(() => {
     if (!user) return;
-
     const countUnread = async () => {
       const lastRead = localStorage.getItem(`chat_last_read_${user.id}`) ?? '1970-01-01T00:00:00Z';
-      const { count } = await supabase
-        .from('messages')
-        .select('*', { count: 'exact', head: true })
-        .neq('user_id', user.id)
-        .gt('created_at', lastRead);
+      const { count } = await supabase.from('messages').select('*', { count: 'exact', head: true })
+        .neq('user_id', user.id).gt('created_at', lastRead);
       setUnread(count ?? 0);
     };
-
     countUnread();
-
     const sub = supabase.channel('unread_badge')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' },
         payload => {
           const msg = payload.new as { user_id: string; created_at: string };
           if (msg.user_id === user.id) return;
           const lastRead = localStorage.getItem(`chat_last_read_${user.id}`) ?? '1970-01-01T00:00:00Z';
-          if (new Date(msg.created_at) > new Date(lastRead)) {
-            setUnread(prev => prev + 1);
-          }
+          if (new Date(msg.created_at) > new Date(lastRead)) setUnread(prev => prev + 1);
         })
       .subscribe();
-
-    // Listen for chat-read event dispatched by chat page
     const onChatRead = () => setUnread(0);
     window.addEventListener('chat-read', onChatRead);
-
     return () => { sub.unsubscribe(); window.removeEventListener('chat-read', onChatRead); };
   }, [user]);
 
-  // Clear badge when navigating to /chat
   useEffect(() => {
     if (pathname === '/chat' && user) {
       localStorage.setItem(`chat_last_read_${user.id}`, new Date().toISOString());
@@ -85,8 +68,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   return (
-    <div style={{ background: 'linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #24243e 100%)', minHeight: '100dvh' }}>
-
+    <div style={{
+      background: 'linear-gradient(160deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
+      height: '100dvh',
+      overflow: 'hidden',
+    }}>
       {/* Fixed top bar */}
       <header
         className="fixed top-0 left-0 right-0 z-40 flex items-center justify-between px-5 border-b border-white/10"
@@ -114,13 +100,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </button>
       </header>
 
-      {/* Scrollable content */}
+      {/* Scrollable content — fixed height so overflow-y activates */}
       <main
-        className="overflow-y-auto overscroll-contain"
+        className="overflow-y-auto overscroll-y-contain"
         style={{
-          paddingTop: 'calc(max(env(safe-area-inset-top), 40px) + 54px)',
+          paddingTop:    'calc(max(env(safe-area-inset-top), 40px) + 54px)',
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 68px)',
-          minHeight: '100dvh',
+          height: '100dvh',
         }}
       >
         {children}
@@ -137,12 +123,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         }}
       >
         {NAV.map(({ href, label, icon }) => {
-          const active = pathname === href;
-          const showBadge = href === '/chat' && unread > 0;
+          const active     = pathname === href;
+          const showBadge  = href === '/chat' && unread > 0;
           return (
-            <Link
-              key={href}
-              href={href}
+            <Link key={href} href={href}
               className={`flex-1 flex flex-col items-center py-2.5 gap-0.5 transition-colors ${
                 active ? 'text-[#FF6B6B]' : 'text-white/35'
               }`}

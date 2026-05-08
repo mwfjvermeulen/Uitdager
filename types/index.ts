@@ -25,6 +25,8 @@ export interface ChallengeActivity {
   challenge_id: string;
   name: string;
   target_count?: number;
+  target_count_man?: number;
+  target_count_woman?: number;
   unit: string;
   duration_minutes?: number;
   sort_order: number;
@@ -36,6 +38,7 @@ export interface DailyCompletion {
   user_id: string;
   day_number: number;
   completed_at: string;
+  completed_late?: boolean;
 }
 
 export interface ActivityProgress {

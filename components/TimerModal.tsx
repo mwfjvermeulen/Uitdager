@@ -1,23 +1,30 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 
+const fmtSecs = (s: number) => {
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return sec > 0 ? `${m}m ${sec}s` : `${m}m`;
+};
+
 export default function TimerModal({
-  activity, remainingMinutes, totalMinutes, doneSoFar, onClose, onSaveDone,
+  activity, remainingSeconds, totalSeconds, doneSoFar, onClose, onSaveDone,
 }: {
   activity: { name: string; duration_minutes?: number };
-  remainingMinutes: number;
-  totalMinutes: number;
+  remainingSeconds: number;
+  totalSeconds: number;
   doneSoFar: number;
   onClose: () => void;
-  onSaveDone: (minutesDone: number) => void;
+  onSaveDone: (secondsDone: number) => void;
 }) {
-  const totalSecs = Math.max(remainingMinutes, 0) * 60;
-  const [left,    setLeft]    = useState(totalSecs);
+  const startSecs = Math.max(remainingSeconds, 0);
+  const [left,    setLeft]    = useState(startSecs);
   const [running, setRunning] = useState(false);
-  const [done,    setDone]    = useState(remainingMinutes <= 0);
+  const [done,    setDone]    = useState(remainingSeconds <= 0);
   const ref = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const elapsed = totalSecs - left;
+  const elapsed = startSecs - left;
 
   useEffect(() => {
     if (running) {
@@ -33,26 +40,23 @@ export default function TimerModal({
     return () => clearInterval(ref.current!);
   }, [running]);
 
-  // Auto-save when countdown finishes
   useEffect(() => {
     if (!done) return;
-    const t = setTimeout(() => onSaveDone(remainingMinutes), 1800);
+    const t = setTimeout(() => onSaveDone(remainingSeconds), 1800);
     return () => clearTimeout(t);
   }, [done]);
 
-  const fmt = (s: number) =>
+  const fmt   = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
-  const pct   = totalSecs > 0 ? (left / totalSecs) * 100 : 0;
+  const pct   = startSecs > 0 ? (left / startSecs) * 100 : 0;
   const color = pct > 50 ? '#6BCB77' : pct > 20 ? '#FFE66D' : '#FF6B6B';
   const r     = 54;
   const circ  = 2 * Math.PI * r;
   const dash  = (pct / 100) * circ;
 
-  const elapsedMin = Math.round(elapsed / 60);
-
   const handleStop = () => {
     if (elapsed < 60) { onClose(); return; }
-    onSaveDone(elapsedMin);
+    onSaveDone(elapsed);
   };
 
   return (
@@ -64,14 +68,13 @@ export default function TimerModal({
         <h2 className="text-xl font-black text-white text-center">{activity.name}</h2>
         {doneSoFar > 0 ? (
           <div className="text-center mt-1 mb-5">
-            <p className="text-white/40 text-sm">{doneSoFar} / {totalMinutes} min gedaan</p>
-            <p className="text-[#4ECDC4] text-xs mt-0.5">Nog {remainingMinutes} min te gaan</p>
+            <p className="text-white/40 text-sm">{fmtSecs(doneSoFar)} / {fmtSecs(totalSeconds)} gedaan</p>
+            <p className="text-[#4ECDC4] text-xs mt-0.5">Nog {fmtSecs(remainingSeconds)} te gaan</p>
           </div>
         ) : (
-          <p className="text-white/40 text-sm text-center mt-1 mb-5">{totalMinutes} minuten timer</p>
+          <p className="text-white/40 text-sm text-center mt-1 mb-5">{fmtSecs(totalSeconds)} timer</p>
         )}
 
-        {/* Circular timer */}
         <div className="flex justify-center mb-7">
           <div className="relative w-36 h-36 flex items-center justify-center">
             <svg className="absolute inset-0 -rotate-90" width="144" height="144">
@@ -89,7 +92,7 @@ export default function TimerModal({
                 : <>
                     <span className="text-3xl font-black text-white">{fmt(left)}</span>
                     {elapsed >= 60 && (
-                      <p className="text-white/30 text-[10px] mt-0.5">{elapsedMin} min nu</p>
+                      <p className="text-white/30 text-[10px] mt-0.5">{fmtSecs(elapsed)} nu</p>
                     )}
                   </>
               }
@@ -106,14 +109,14 @@ export default function TimerModal({
                   running ? 'bg-[#FFE66D] text-[#1a1a2e]' : 'bg-[#FF6B6B] text-white'
                 }`}
               >
-                {running ? '⏸ Pauzeer' : left === totalSecs ? '▶️ Start' : '▶️ Hervat'}
+                {running ? '⏸ Pauzeer' : left === startSecs ? '▶️ Start' : '▶️ Hervat'}
               </button>
               {elapsed >= 60 && (
                 <button
                   onClick={handleStop}
                   className="w-full py-3 rounded-2xl font-bold text-sm bg-[#4ECDC4]/20 border border-[#4ECDC4]/40 text-[#4ECDC4] active:scale-95"
                 >
-                  ⏹ Stop — {elapsedMin} min opslaan
+                  ⏹ Stop — {fmtSecs(elapsed)} opslaan
                 </button>
               )}
               <button onClick={onClose} className="w-full py-2 text-white/30 text-xs">
@@ -122,7 +125,7 @@ export default function TimerModal({
             </>
           ) : (
             <button
-              onClick={() => onSaveDone(remainingMinutes)}
+              onClick={() => onSaveDone(remainingSeconds)}
               className="w-full py-4 rounded-2xl font-bold text-white text-lg bg-[#6BCB77] active:scale-95 transition-transform"
             >
               ✔ Volledig voltooid — opslaan
